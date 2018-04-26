@@ -182,7 +182,7 @@ class Game:
 
     def runGame(self):
         # setup variables for the start of the game
-        board = self.getBlankBoard()
+        self.board = self.getBlankBoard()
         lastMoveDownTime = time.time()
         lastMoveSidewaysTime = time.time()
         lastFallTime = time.time()
@@ -225,13 +225,13 @@ class Game:
 
                 elif event.type == KEYDOWN:
                     # moving the piece sideways
-                    if (event.key == K_LEFT or event.key == K_a) and self.isValidPosition(board, fallingPiece, adjX=-1):
+                    if (event.key == K_LEFT or event.key == K_a) and self.isValidPosition(self.board, fallingPiece, adjX=-1):
                         fallingPiece['x'] -= 1
                         movingLeft = True
                         movingRight = False
                         lastMoveSidewaysTime = time.time()
 
-                    elif (event.key == K_RIGHT or event.key == K_d) and self.isValidPosition(board, fallingPiece, adjX=1):
+                    elif (event.key == K_RIGHT or event.key == K_d) and self.isValidPosition(self.board, fallingPiece, adjX=1):
                         fallingPiece['x'] += 1
                         movingRight = True
                         movingLeft = False
@@ -240,17 +240,17 @@ class Game:
                     # rotating the piece (if there is room to rotate)
                     elif (event.key == K_UP or event.key == K_w):
                         fallingPiece['rotation'] = (fallingPiece['rotation'] + 1) % len(PIECES[fallingPiece['shape']])
-                        if not self.isValidPosition(board, fallingPiece):
+                        if not self.isValidPosition(self.board, fallingPiece):
                             fallingPiece['rotation'] = (fallingPiece['rotation'] - 1) % len(PIECES[fallingPiece['shape']])
                     elif (event.key == K_q): # rotate the other direction
                         fallingPiece['rotation'] = (fallingPiece['rotation'] - 1) % len(PIECES[fallingPiece['shape']])
-                        if not self.isValidPosition(board, fallingPiece):
+                        if not self.isValidPosition(self.board, fallingPiece):
                             fallingPiece['rotation'] = (fallingPiece['rotation'] + 1) % len(PIECES[fallingPiece['shape']])
 
                     # making the piece fall faster with the down key
                     elif (event.key == K_DOWN or event.key == K_s):
                         movingDown = True
-                        if self.isValidPosition(board, fallingPiece, adjY=1):
+                        if self.isValidPosition(self.board, fallingPiece, adjY=1):
                             fallingPiece['y'] += 1
                             lastMoveDownTime = time.time()
 
@@ -260,29 +260,29 @@ class Game:
                         movingLeft = False
                         movingRight = False
                         for i in range(1, BOARDHEIGHT):
-                            if not self.isValidPosition(board, fallingPiece, adjY=i):
+                            if not self.isValidPosition(self.board, fallingPiece, adjY=i):
                                 break
                             fallingPiece['y'] += i - 1
 
             # handle moving the piece because of user input
             if (movingLeft or movingRight) and time.time() - lastMoveSidewaysTime > MOVESIDEWAYSFREQ:
-                if movingLeft and self.isValidPosition(board, fallingPiece, adjX=-1):
+                if movingLeft and self.isValidPosition(self.board, fallingPiece, adjX=-1):
                     fallingPiece['x'] -= 1
-                elif movingRight and self.isValidPosition(board, fallingPiece, adjX=1):
+                elif movingRight and self.isValidPosition(self.board, fallingPiece, adjX=1):
                     fallingPiece['x'] += 1
                     lastMoveSidewaysTime = time.time()
 
-            if movingDown and time.time() - lastMoveDownTime > MOVEDOWNFREQ and self.isValidPosition(board, fallingPiece, adjY=1):
+            if movingDown and time.time() - lastMoveDownTime > MOVEDOWNFREQ and self.isValidPosition(self.board, fallingPiece, adjY=1):
                 fallingPiece['y'] += 1
                 lastMoveDownTime = time.time()
 
             # let the piece fall if it is time to fall
             if time.time() - lastFallTime > fallFreq:
                 # see if the piece has landed
-                if not self.isValidPosition(board, fallingPiece, adjY=1):
+                if not self.isValidPosition(self.board, fallingPiece, adjY=1):
                     # falling piece has landed, set it on the board
-                    self.addToBoard(board, fallingPiece)
-                    self.score += self.removeCompleteLines(board)
+                    self.addToBoard(self.board, fallingPiece)
+                    self.score += self.removeCompleteLines(self.board)
                     level, fallFreq = self.calculateLevelAndFallFreq(self.score)
                     fallingPiece = None
                 else:
@@ -292,7 +292,7 @@ class Game:
 
             # drawing everything on the screen
             DISPLAYSURF.fill(BGCOLOR)
-            self.drawBoard(board)
+            self.drawBoard(self.board)
             self.drawStatus(self.score, level)
             self.drawNextPiece(nextPiece)
             if fallingPiece != None:
