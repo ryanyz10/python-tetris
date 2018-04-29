@@ -21,7 +21,11 @@
 # THE SOFTWARE.
 
 from random import randrange as rand
+from enum import Enum
 import pygame, sys
+import numpy as np
+import math
+from copy import deepcopy
 
 # The configuration
 cell_size =	18
@@ -65,7 +69,7 @@ tetris_shapes = [
 ]
 
 def rotate_clockwise(shape):
-    return [[shape[y][x] for y in xrange(len(shape)) ] for x in xrange(len(shape[0]) - 1, -1, -1)]
+    return [[shape[y][x] for y in range(len(shape)) ] for x in range(len(shape[0]) - 1, -1, -1)]
 
 def check_collision(board, shape, offset):
     off_x, off_y = offset
@@ -82,7 +86,7 @@ def remove_row(board, row):
     board[row].clear()
     return [[0 for i in range(cols)]] + board
 
-def join_matrixes(mat1, mat2, mat2_off):
+def join_matrices(mat1, mat2, mat2_off):
 	off_x, off_y = mat2_off
 	for cy, row in enumerate(mat2):
 		for cx, val in enumerate(row):
@@ -93,6 +97,12 @@ def new_board():
 	board = [[0 for x in range(cols)] for y in range(rows)]
 	board += [[1 for x in range(cols)]]
 	return board
+
+class Moves(Enum):
+    LEFT  = 1
+    RIGHT = 2
+    DROP  = 3
+    ROT   = 4
 
 class TetrisApp(object):
     def __init__(self, training=False):
@@ -183,7 +193,8 @@ class TetrisApp(object):
             self.score += 1 if manual else 0
             self.stone_y += 1
             if check_collision(self.board, self.stone, (self.stone_x, self.stone_y)):
-                self.board = join_matrixes(self.board, self.stone, (self.stone_x, self.stone_y))
+                print("AT BOTTOM")
+                self.board = join_matrices(self.board, self.stone, (self.stone_x, self.stone_y))
                 self.new_stone()
                 cleared_rows = 0
                 while True:
@@ -202,9 +213,11 @@ class TetrisApp(object):
         if not self.gameover and not self.paused:
             while(not self.drop(True)):
                 pass
+            print("DONE INSTADROPPING")
 
     def rotate_stone(self):
         if not self.gameover and not self.paused:
+            print("ROTATING STONE")
             new_stone = rotate_clockwise(self.stone)
             if not check_collision(self.board, new_stone, (self.stone_x, self.stone_y)):
                 self.stone = new_stone
@@ -234,24 +247,23 @@ class TetrisApp(object):
 
         dont_burn_my_cpu = pygame.time.Clock()
         while True:
-            if not self.training:
-                self.screen.fill((0,0,0))
-                if self.gameover:
-                    self.center_msg("""Game Over!\nYour score: %d\nPress space to continue""" % self.score)
+            self.screen.fill((0,0,0))
+            if self.gameover:
+                self.center_msg("""Game Over!\nYour score: %d\nPress space to continue""" % self.score)
+            else:
+                if self.paused:
+                    self.center_msg("Paused")
                 else:
-                    if self.paused:
-                        self.center_msg("Paused")
-                    else:
-                        pygame.draw.line(self.screen, (255,255,255),
-                                         (self.rlim+1, 0), (self.rlim+1, self.height-1))
-                        self.disp_msg("Next:", (self.rlim+cell_size, 2))
-                        self.disp_msg("Score: %d\n\nLevel: %d\nLines: %d" % (self.score, self.level, self.lines),
-                                      (self.rlim+cell_size, cell_size*5))
-                        self.draw_matrix(self.bground_grid, (0,0))
-                        self.draw_matrix(self.board, (0,0))
-                        self.draw_matrix(self.stone, (self.stone_x, self.stone_y))
-                        self.draw_matrix(self.next_stone, (cols+1,2))
-                pygame.display.update()
+                    pygame.draw.line(self.screen, (255,255,255),
+                                     (self.rlim+1, 0), (self.rlim+1, self.height-1))
+                    self.disp_msg("Next:", (self.rlim+cell_size, 2))
+                    self.disp_msg("Score: %d\n\nLevel: %d\nLines: %d" % (self.score, self.level, self.lines),
+                                  (self.rlim+cell_size, cell_size*5))
+                    self.draw_matrix(self.bground_grid, (0,0))
+                    self.draw_matrix(self.board, (0,0))
+                    self.draw_matrix(self.stone, (self.stone_x, self.stone_y))
+                    self.draw_matrix(self.next_stone, (cols+1,2))
+            pygame.display.update()
 
             for event in pygame.event.get():
                 if event.type == pygame.USEREVENT+1:
@@ -265,6 +277,212 @@ class TetrisApp(object):
 
             dont_burn_my_cpu.tick(maxfps)
 
+    def run_brain(self, weights):
+        brain_actions = {
+            Moves.LEFT:  lambda:self.move(-1),
+            Moves.RIGHT: lambda:self.move(1),
+            Moves.DROP:  self.insta_drop,
+            Moves.ROT:   self.rotate_stone
+        }
+
+        self.init_game()
+        self.gameover = False
+        self.paused = False
+        brain = Brain(weights)
+        dont_burn_my_cpu = pygame.time.Clock()
+        while True:
+            if self.training:
+                # training
+                if self.gameover:
+                    return self.score
+                else:
+                    brain.set_board(self.board, self.stone)
+                    next_moves = brain.get_best_move()
+                    print(next_moves)
+                    for move in next_moves:
+                        brain_actions[move]()
+                dont_burn_my_cpu.tick(1000)
+            else:
+                # TODO run the brain with graphics
+                pass
+
+class Data:
+    def __init__(self, board, stone, stone_x, stone_y):
+        self.board = board
+        self.stone = stone
+        self.stone_x = stone_x
+        self.stone_y = stone_y
+
+    @staticmethod
+    def clone(data):
+        return Data(deepcopy(data.board), data.stone[:], data.stone_x, data.stone_y)
+
+
+# determines the best moves according to the weights it is given
+class Brain:
+    def __init__(self, weights):
+        self.weights = weights
+
+    def set_board(self, board, stone):
+        self.num_rows = len(board) - 1
+        self.num_cols = len(board[0])
+        self.begin_state = Data(board, stone, int(self.num_cols / 2 - len(stone[0])/2), 0)
+
+    # enumerate all the possible move combinations, then score them
+    def get_best_move(self):
+        (moves, states) = self.enumerate(self.begin_state)
+        scores = list()
+        for state in states:
+            score = self.weights[0] * self.aggregate_height(state) + self.weights[1] * self.complete_lines(state) + self.weights[2] * self.num_holes(state) + self.weights[3] * self.bumpiness(state)
+            scores.append(score)
+        return moves[scores.index(max(scores))]
+
+    # returns ([list of move combinations], [list of Data states])
+    def enumerate(self, begin_state):
+        moves = list()
+        states = list()
+
+        # go through with original orientation
+        temp = Data.clone(begin_state)
+        moves.append([Moves.DROP])
+        self.insta_drop(temp)
+        states.append(temp)
+
+        # now translate the normal orientation
+        temp = Data.clone(begin_state)
+        num_left = 0
+        while self.move(temp, -1):
+            # left translations
+            num_left += 1
+            moves.append([Moves.LEFT] * num_left + [Moves.DROP])
+            drop_temp = Data.clone(temp)
+            self.insta_drop(drop_temp)
+            states.append(drop_temp)
+        temp = Data.clone(begin_state)
+        num_right = 0
+        while self.move(temp,1):
+            # right translations
+            num_right += 1
+            moves.append([Moves.RIGHT] * num_right + [Moves.DROP])
+            drop_temp = Data.clone(temp)
+            self.insta_drop(drop_temp)
+            states.append(drop_temp)
+
+        # now go through the rotations
+        temp = Data.clone(begin_state)
+        num_rot = 0
+        while self.rotate_stone(temp):
+            num_rot += 1
+
+            rot_temp = Data.clone(temp)
+            moves.append([Moves.ROT] * num_rot + [Moves.DROP])
+            self.insta_drop(rot_temp)
+            states.append(rot_temp)
+
+            # now translate the rotated orientation
+            rot_temp = Data.clone(temp)
+            num_left = 0
+            while self.move(rot_temp, -1):
+                # left translations
+                num_left += 1
+                moves.append([Moves.ROT] * num_rot + [Moves.LEFT] * num_left + [Moves.DROP])
+                drop_temp = Data.clone(rot_temp)
+                self.insta_drop(drop_temp)
+                states.append(drop_temp)
+            rot_temp = Data.clone(temp)
+            num_right = 0
+            while self.move(temp, 1):
+                # right translations
+                num_right += 1
+                moves.append([Moves.ROT] * num_rot + [Moves.RIGHT] * num_right + [Moves.DROP])
+                drop_temp = Data.clone(rot_temp)
+                self.insta_drop(drop_temp)
+                states.append(drop_temp)
+
+        return (moves, states)
+
+    # returns True if translation was successful
+    def move(self, data, delta_x):
+        new_x = data.stone_x + delta_x
+        if new_x < 0:
+            return False
+        if new_x > self.num_cols - len(data.stone[0]):
+            return False
+        if not check_collision(data.board, data.stone, (new_x, data.stone_y)):
+            data.stone_x = new_x
+            return True
+        return False
+
+    # returns True if rotate was successful
+    def rotate_stone(self, data):
+        new_stone = rotate_clockwise(data.stone)
+        if not check_collision(data.board, new_stone, (data.stone_x, data.stone_y)):
+            data.stone = new_stone
+            return True
+        return False
+
+    def insta_drop(self, data):
+        while not self.drop(data):
+            pass
+
+    def drop(self, data):
+        data.stone_y += 1
+        if check_collision(data.board, data.stone, (data.stone_x, data.stone_y)):
+            data.board = join_matrices(data.board, data.stone, (data.stone_x, data.stone_y))
+            return True
+        return False
+
+    # get the height of each column in the board
+    # returns a list with length = num_cols
+    # each entry represents the height of that column in the board
+    def heights(self, data):
+        heights = list()
+        for col in range(self.num_cols):
+            count = 0
+            # go through each column starting from the top, stop when a block is found
+            for row in range(self.num_rows):
+                if data.board[row][col] == 0:
+                    count += 1
+                else:
+                    break
+
+            heights.append(self.num_rows - count)
+        return heights
+
+    # calculate the sum of the heights of all columns in the board
+    def aggregate_height(self, data):
+        return sum(self.heights(data))
+
+    # calculate the number of filled rows
+    def complete_lines(self, data):
+        count = 0
+        for line in data.board:
+            if 0 not in line:
+                count += 1
+        return count
+
+    # calculate the number of holes
+    # a hole is defined as an empty space with a filled space above it
+    def num_holes(self, data):
+        num_holes = 0
+        for col in range(self.num_cols):
+            num_empty = 0
+            for row in range(self.num_rows - 1, -1, -1):
+                if data.board[row][col] == 0:
+                    num_empty += 1
+                else:
+                    num_holes += num_empty
+                    num_empty = 0
+        return num_holes
+
+    # calculate the bumpiness of the board
+    def bumpiness(self, data):
+        board_heights = self.heights(data)
+        bumpiness = 0
+        for i in range(self.num_cols - 1):
+            bumpiness += abs(board_heights[i] - board_heights[i + 1])
+        return bumpiness
+
 if __name__ == '__main__':
-    App = TetrisApp(training=True)
+    App = TetrisApp()
     App.run()

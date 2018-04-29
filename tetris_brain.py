@@ -1,41 +1,54 @@
-# gets the height of each column in the board
-# returns a list with each element corresponding to the height in the column
-def heights(board):
-    num_rows = len(board)
-    num_cols = len(board[0])
-    heights = list()
-    for col in range(num_cols):
-        count = 0
-        for row in range(num_rows - 1, -1, -1):
-            if board[row][col] == 0:
-                break
-            count += 1
-        heights.append(count)
-
-    return heights
+from tetris import TetrisApp
+from deap import base, creator, tools, algorithms
+import numpy as np
 
 
-def complete_lines(board):
-    count = 0
-    for line in board:
-        if 0 not in line:
-            count += 1
+if __name__ == "__main__":
+    creator.create("FitnessMax", base.Fitness, weights=(1.0,))
+    creator.create("Individual", list, fitness=creator.FitnessMax)
 
-    return count
+    toolbox = base.Toolbox()
 
-def num_holes(board):
-    pass
+    def random_between(lo, hi):
+        return np.random.random() * (hi - lo) + lo
 
-def bumpiness(board):
+    toolbox.register("weight", random_between, -1, 1)
+    toolbox.register("individual", tools.initRepeat, creator.Individual, toolbox.weight, n=4)
+    toolbox.register("population", tools.initRepeat, list, toolbox.individual)
 
-    pass
+    toolbox.register("mate", tools.cxBlend, alpha=0.5) # TODO change around alpha
+    toolbox.register("mutate", tools.mutGaussian, mu=0.0, sigma=0.3, indpb=0.05) # TODO change around sigma, indpb
+    toolbox.register("select", tools.selTournament, tournsize=5) # TODO change around tournsize
 
-class Brain:
-    def __init__(self, board):
-        self.board = board
+    # Define EA parameters
+    n_gen = 20
+    pop_size = 25
+    prob_xover = 0.5
+    prob_mut = 0.2
 
-    def test_move(self):
-        pass
+    pop = toolbox.population(n=pop_size)
 
-# aggregate height can be calculated from sum(heights(board))
-# heights(board) will be stored somewhere
+    game = TetrisApp(training=True)
+
+    # GA loop
+    for g in range(1, n_gen + 1):
+        print("On generation " + str(g))
+
+        # simulate for each individual
+        for ind in pop:
+            print("ind:" + str(ind))
+            score = game.run_brain(ind)
+            ind.fitness.values = (score,)
+
+        # by this point each ind.gitness.values should be the score
+
+        # Create children
+        offspring = map(toolbox.clone, toolbox.select(pop, len(pop)))
+        offspring = algorithms.varAnd(offspring, toolbox, prob_xover, prob_mut)
+        pop[:] = offspring
+
+        # now print the best trained individual
+
+    best = max(pop, key=attrgetter("fitness"))
+
+    print("best individual found is: " + str(best))
