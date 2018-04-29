@@ -78,6 +78,7 @@ def check_collision(board, shape, offset):
                 if cell and board[cy + off_y ][cx + off_x ]:
                     return True
             except IndexError:
+                print("collision with wall")
                 return True
     return False
 
@@ -427,6 +428,10 @@ class Brain:
                 self.insta_drop(drop_temp)
                 states.append(drop_temp)
 
+        print(begin_state.stone)
+        print("considered " + str(len(moves)) + " move combos")
+        print("went through " + str(num_rot) + " rotations")
+
         return (moves, states)
 
     # returns True if translation was successful
@@ -446,7 +451,9 @@ class Brain:
         new_stone = rotate_clockwise(data.stone)
         if not check_collision(data.board, new_stone, (data.stone_x, data.stone_y)):
             data.stone = new_stone
+            print("good rotate")
             return True
+        print("bad rotate")
         return False
 
     def insta_drop(self, data):
@@ -513,7 +520,7 @@ class Brain:
 
 if __name__ == '__main__':
     App = TetrisApp()
-    weights = [-0.7288027216594761, 0.6025780770343667, -0.22711939485205948,
-            -0.838288928266333]
-    App.run_brain(weights)
-#    App.run()
+#    weights = [-0.7288027216594761, 0.6025780770343667, -0.22711939485205948,
+#            -0.838288928266333]
+#    App.run_brain(weights)
+    App.run()
