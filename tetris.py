@@ -25,7 +25,6 @@ from enum import Enum
 import pygame, sys
 import numpy as np
 import math
-from copy import deepcopy
 
 # The configuration
 cell_size =	18
@@ -83,7 +82,6 @@ def check_collision(board, shape, offset):
     return False
 
 def remove_row(board, row):
-    print("before: " + str(board))
     del board[row]
     return [[0 for i in range(cols)]] + board
 
@@ -165,14 +163,7 @@ class TetrisApp(object):
                                      pygame.Rect((off_x+x) * cell_size, (off_y+y) * cell_size, cell_size, cell_size), 0)
 
     def add_cl_lines(self, n):
-        linescores = [0, 40, 100, 300, 1200]
-        self.lines += n
-        self.score += linescores[n] * self.level
-        if self.lines >= self.level*6:
-            self.level += 1
-            newdelay = 1000-50*(self.level-1)
-            newdelay = 100 if newdelay < 100 else newdelay
-            pygame.time.set_timer(pygame.USEREVENT+1, newdelay)
+        self.score += 10 * n # 10 points to clear a row
 
     def move(self, delta_x):
         if not self.gameover and not self.paused:
@@ -201,23 +192,22 @@ class TetrisApp(object):
                     for i, row in enumerate(self.board[:-1]):
                         if 0 not in row:
                             self.board = remove_row(self.board, i)
-                            print("after: " + str(self.board))
                             cleared_rows += 1
                             break
                     else:
                         break
                 self.add_cl_lines(cleared_rows)
+                self.score += 1 # 1 point to place a piece
                 return True
         return False
 
     def insta_drop(self):
         if not self.gameover and not self.paused:
-            while(not self.drop(True)):
+            while(not self.drop(False)):
                 pass
 
     def rotate_stone(self):
         if not self.gameover and not self.paused:
-            print("ROTATING STONE")
             new_stone = rotate_clockwise(self.stone)
             if not check_collision(self.board, new_stone, (self.stone_x, self.stone_y)):
                 self.stone = new_stone
@@ -229,13 +219,14 @@ class TetrisApp(object):
         if self.gameover:
             self.init_game()
             self.gameover = False
+            self.run_brain(self.weights)
 
     def run(self):
         key_actions = {
             'ESCAPE':	self.quit,
             'LEFT':		lambda:self.move(-1),
             'RIGHT':	lambda:self.move(+1),
-            'DOWN':		lambda:self.drop(True),
+            'DOWN':		lambda:self.drop(False),
             'UP':		self.rotate_stone,
             'p':		self.toggle_pause,
             'SPACE':	self.start_game,
@@ -284,8 +275,10 @@ class TetrisApp(object):
             Moves.DROP:  self.insta_drop,
             Moves.ROT:   self.rotate_stone
         }
+        self.weights = weights
 
         self.init_game()
+        pygame.time.set_timer(pygame.USEREVENT+1, 100)
         self.gameover = False
         self.paused = False
         brain = Brain(weights)
@@ -298,13 +291,42 @@ class TetrisApp(object):
                 else:
                     brain.set_board(self.board, self.stone)
                     next_moves = brain.get_best_move()
-                    print(next_moves)
                     for move in next_moves:
                         brain_actions[move]()
                 dont_burn_my_cpu.tick(1000)
             else:
-                # TODO run the brain with graphics
-                pass
+                self.screen.fill((0,0,0))
+                if self.gameover:
+                    self.center_msg("""Game Over!\nYour score: %d\nPress space to continue""" % self.score)
+                else:
+                    if self.paused:
+                        self.center_msg("Paused")
+                    else:
+                        pygame.draw.line(self.screen, (255,255,255),
+                                     (self.rlim+1, 0), (self.rlim+1, self.height-1))
+                        self.disp_msg("Next:", (self.rlim+cell_size, 2))
+                        self.disp_msg("Score: %d\n\nLevel: %d\nLines: %d" % (self.score, self.level, self.lines),
+                                  (self.rlim+cell_size, cell_size*5))
+                        self.draw_matrix(self.bground_grid, (0,0))
+                        self.draw_matrix(self.board, (0,0))
+                        self.draw_matrix(self.stone, (self.stone_x, self.stone_y))
+                        self.draw_matrix(self.next_stone, (cols+1,2))
+                pygame.display.update()
+
+                for event in pygame.event.get():
+                    if event.type == pygame.USEREVENT+1:
+                        # get computer's decision
+                        brain.set_board(self.board, self.stone)
+                        next_moves = brain.get_best_move()
+                        for move in next_moves:
+                            brain_actions[move]()
+                    elif event.type == pygame.QUIT:
+                        self.quit()
+                    elif event.type == pygame.KEYDOWN:
+                        if event.key == eval("pygame.K_SPACE"):
+                            self.start_game()
+
+                dont_burn_my_cpu.tick(maxfps)
 
 class Data:
     def __init__(self, board, stone, stone_x, stone_y):
@@ -315,7 +337,10 @@ class Data:
 
     @staticmethod
     def clone(data):
-        return Data(deepcopy(data.board), data.stone[:], data.stone_x, data.stone_y)
+        board_copy = list()
+        for row in data.board:
+            board_copy.append(row[:])
+        return Data(board_copy, data.stone[:], data.stone_x, data.stone_y)
 
 
 # determines the best moves according to the weights it is given
@@ -373,6 +398,9 @@ class Brain:
         num_rot = 0
         while self.rotate_stone(temp):
             num_rot += 1
+
+            if num_rot > 3:
+                break
 
             rot_temp = Data.clone(temp)
             moves.append([Moves.ROT] * num_rot + [Moves.DROP])
@@ -456,7 +484,7 @@ class Brain:
     # calculate the number of filled rows
     def complete_lines(self, data):
         count = 0
-        for line in data.board:
+        for line in data.board[:-1]:
             if 0 not in line:
                 count += 1
         return count
@@ -485,4 +513,7 @@ class Brain:
 
 if __name__ == '__main__':
     App = TetrisApp()
-    App.run()
+    weights = [-0.7288027216594761, 0.6025780770343667, -0.22711939485205948,
+            -0.838288928266333]
+    App.run_brain(weights)
+#    App.run()

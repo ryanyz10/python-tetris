@@ -1,6 +1,7 @@
 from tetris import TetrisApp
 from deap import base, creator, tools, algorithms
 import numpy as np
+from operator import attrgetter
 
 
 if __name__ == "__main__":
@@ -16,15 +17,15 @@ if __name__ == "__main__":
     toolbox.register("individual", tools.initRepeat, creator.Individual, toolbox.weight, n=4)
     toolbox.register("population", tools.initRepeat, list, toolbox.individual)
 
-    toolbox.register("mate", tools.cxBlend, alpha=0.5) # TODO change around alpha
+    toolbox.register("mate", tools.cxBlend, alpha=0.4) # TODO change around alpha
     toolbox.register("mutate", tools.mutGaussian, mu=0.0, sigma=0.3, indpb=0.05) # TODO change around sigma, indpb
     toolbox.register("select", tools.selTournament, tournsize=5) # TODO change around tournsize
 
     # Define EA parameters
-    n_gen = 20
-    pop_size = 25
+    n_gen = 40
+    pop_size = 40
     prob_xover = 0.5
-    prob_mut = 0.2
+    prob_mut = 0.15
 
     pop = toolbox.population(n=pop_size)
 
@@ -38,6 +39,7 @@ if __name__ == "__main__":
         for ind in pop:
             print("ind:" + str(ind))
             score = game.run_brain(ind)
+            print("score: " + str(score))
             ind.fitness.values = (score,)
 
         # by this point each ind.gitness.values should be the score
