@@ -22,8 +22,8 @@ if __name__ == "__main__":
     toolbox.register("select", tools.selTournament, tournsize=5) # TODO change around tournsize
 
     # Define EA parameters
-    n_gen = 40
-    pop_size = 40
+    n_gen = 10
+    pop_size = 25
     prob_xover = 0.5
     prob_mut = 0.15
 

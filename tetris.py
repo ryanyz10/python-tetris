@@ -78,7 +78,6 @@ def check_collision(board, shape, offset):
                 if cell and board[cy + off_y ][cx + off_x ]:
                     return True
             except IndexError:
-                print("collision with wall")
                 return True
     return False
 
@@ -165,6 +164,7 @@ class TetrisApp(object):
 
     def add_cl_lines(self, n):
         self.score += 10 * n # 10 points to clear a row
+        self.lines += 1
 
     def move(self, delta_x):
         if not self.gameover and not self.paused:
@@ -326,6 +326,8 @@ class TetrisApp(object):
                     elif event.type == pygame.KEYDOWN:
                         if event.key == eval("pygame.K_SPACE"):
                             self.start_game()
+                        elif event.key == eval("pygame.K_ESCAPE"):
+                            self.quit()
 
                 dont_burn_my_cpu.tick(maxfps)
 
@@ -398,6 +400,7 @@ class Brain:
         temp = Data.clone(begin_state)
         num_rot = 0
         while self.rotate_stone(temp):
+
             num_rot += 1
 
             if num_rot > 3:
@@ -420,17 +423,13 @@ class Brain:
                 states.append(drop_temp)
             rot_temp = Data.clone(temp)
             num_right = 0
-            while self.move(temp, 1):
+            while self.move(rot_temp, 1):
                 # right translations
                 num_right += 1
                 moves.append([Moves.ROT] * num_rot + [Moves.RIGHT] * num_right + [Moves.DROP])
                 drop_temp = Data.clone(rot_temp)
                 self.insta_drop(drop_temp)
                 states.append(drop_temp)
-
-        print(begin_state.stone)
-        print("considered " + str(len(moves)) + " move combos")
-        print("went through " + str(num_rot) + " rotations")
 
         return (moves, states)
 
@@ -451,9 +450,7 @@ class Brain:
         new_stone = rotate_clockwise(data.stone)
         if not check_collision(data.board, new_stone, (data.stone_x, data.stone_y)):
             data.stone = new_stone
-            print("good rotate")
             return True
-        print("bad rotate")
         return False
 
     def insta_drop(self, data):
@@ -520,7 +517,7 @@ class Brain:
 
 if __name__ == '__main__':
     App = TetrisApp()
-#    weights = [-0.7288027216594761, 0.6025780770343667, -0.22711939485205948,
-#            -0.838288928266333]
-#    App.run_brain(weights)
-    App.run()
+    weights = [-0.366341593732860511, 0.77496970475056587, -0.4004098687750408,
+            -0.18002725710212336]
+    App.run_brain(weights)
+#    App.run()
