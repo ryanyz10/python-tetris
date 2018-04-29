@@ -83,7 +83,8 @@ def check_collision(board, shape, offset):
     return False
 
 def remove_row(board, row):
-    board[row].clear()
+    print("before: " + str(board))
+    del board[row]
     return [[0 for i in range(cols)]] + board
 
 def join_matrices(mat1, mat2, mat2_off):
@@ -193,7 +194,6 @@ class TetrisApp(object):
             self.score += 1 if manual else 0
             self.stone_y += 1
             if check_collision(self.board, self.stone, (self.stone_x, self.stone_y)):
-                print("AT BOTTOM")
                 self.board = join_matrices(self.board, self.stone, (self.stone_x, self.stone_y))
                 self.new_stone()
                 cleared_rows = 0
@@ -201,10 +201,11 @@ class TetrisApp(object):
                     for i, row in enumerate(self.board[:-1]):
                         if 0 not in row:
                             self.board = remove_row(self.board, i)
+                            print("after: " + str(self.board))
                             cleared_rows += 1
                             break
-                        else:
-                            break
+                    else:
+                        break
                 self.add_cl_lines(cleared_rows)
                 return True
         return False
@@ -213,7 +214,6 @@ class TetrisApp(object):
         if not self.gameover and not self.paused:
             while(not self.drop(True)):
                 pass
-            print("DONE INSTADROPPING")
 
     def rotate_stone(self):
         if not self.gameover and not self.paused:
