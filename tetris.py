@@ -25,6 +25,7 @@ from enum import Enum
 import pygame, sys
 import numpy as np
 import math
+import ast
 
 # The configuration
 cell_size =	18
@@ -517,7 +518,8 @@ class Brain:
 
 if __name__ == '__main__':
     App = TetrisApp()
-    weights = [-0.366341593732860511, 0.77496970475056587, -0.4004098687750408,
-            -0.18002725710212336]
+    file = open("best_weights.txt", "r")
+    weights = ast.literal_eval(file.readline())
+    for i, data in enumerate(weights):
+        weights[i] = float(data) 
     App.run_brain(weights)
-#    App.run()

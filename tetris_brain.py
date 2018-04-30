@@ -52,5 +52,6 @@ if __name__ == "__main__":
         # now print the best trained individual
 
     best = max(pop, key=attrgetter("fitness"))
-
-    print("best individual found is: " + str(best))
+    file = open("best_weights.txt", "w")
+    file.write(str(best))
+    file.close()
