@@ -1,0 +1,10 @@
+To run the trained AI:
+-----------------------
+> python3 tetris.py
+
+To re-train the AI (update best_weights.txt)
+---------------------------------------------
+> python3 tetris_brain.py  (will take a while)
+
+* will also update max.txt, mean.txt, and std.txt
+  with statistics about training
