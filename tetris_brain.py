@@ -22,7 +22,7 @@ if __name__ == "__main__":
     toolbox.register("select", tools.selTournament, tournsize=5) # TODO change around tournsize
 
     # Define EA parameters
-    n_gen = 15
+    n_gen = 8
     pop_size = 25
     prob_xover = 0.5
     prob_mut = 0.15
@@ -36,6 +36,10 @@ if __name__ == "__main__":
     mean_out = open("mean.txt", "w")
     std_out = open("std.txt", "w")
 
+    # hall of fame
+    best_ind = []
+    best_score = -1
+
     # GA loop
     for g in range(1, n_gen + 1):
         print("On generation " + str(g))
@@ -48,6 +52,10 @@ if __name__ == "__main__":
             score = game.run_brain(ind)
             scores.append(score)
             ind.fitness.values = (score,)
+            # update hall of fame
+            if score > best_score:
+                best_ind = ind
+                best_score = score
 
         # by this point each ind.fitness.values should be the score
 
@@ -67,7 +75,7 @@ if __name__ == "__main__":
     std_out.close()
 
     # now print the best trained individual
-    best = max(pop, key=attrgetter("fitness"))
+    print("Best individual had score of " + str(best_score))
     file = open("best_weights.txt", "w")
-    file.write(str(best))
+    file.write(str(best_ind))
     file.close()
