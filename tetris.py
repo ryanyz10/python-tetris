@@ -362,7 +362,7 @@ class Brain:
         (moves, states) = self.enumerate(self.begin_state)
         scores = list()
         for state in states:
-            score = self.weights[0] * self.aggregate_height(state) + self.weights[1] * self.complete_lines(state) + self.weights[2] * self.num_holes(state) + self.weights[3] * self.bumpiness(state)
+            score = self.weights[0] * self.aggregate_height(state) + self.weights[1] * self.complete_lines(state) + self.weights[2] * self.num_holes(state) + self.weights[3] * self.bumpiness(state) + self.weights[4] * self.variance(state)
             scores.append(score)
         return moves[scores.index(max(scores))]
 
@@ -481,6 +481,15 @@ class Brain:
 
             heights.append(self.num_rows - count)
         return heights
+
+    def variance(self, data):
+        board_heights = self.heights(data)
+        average = sum(board_heights) / float(self.num_cols)
+        variance = 0
+        for height in board_heights:
+            variance += (height - average) ** 2
+
+        return math.sqrt(variance)
 
     # calculate the sum of the heights of all columns in the board
     def aggregate_height(self, data):

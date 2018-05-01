@@ -14,7 +14,7 @@ if __name__ == "__main__":
         return np.random.random() * (hi - lo) + lo
 
     toolbox.register("weight", random_between, -1, 1)
-    toolbox.register("individual", tools.initRepeat, creator.Individual, toolbox.weight, n=4)
+    toolbox.register("individual", tools.initRepeat, creator.Individual, toolbox.weight, n=5)
     toolbox.register("population", tools.initRepeat, list, toolbox.individual)
 
     toolbox.register("mate", tools.cxBlend, alpha=0.4) # TODO change around alpha
